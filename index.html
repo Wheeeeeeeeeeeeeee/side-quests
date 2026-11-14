@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Side Quests</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="/goals-checklist/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f0e17">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0f0e17; --panel: #1a1b26; --panel2: #24253a; --border: #3d3f5c;
+    --text: #e6edf3; --dim: #9aa0b5; --accent: #58d68d; --accent2: #f7c948;
+    --danger: #f47067; --ink: #16161e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'VT323', 'Courier New', monospace; font-size: 20px; line-height: 1.25;
+    padding: 16px; max-width: 640px; margin: 0 auto;
+  }
+  body::after {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 50;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px);
+    opacity: .35;
+  }
+  h1 {
+    font-family: 'Press Start 2P', monospace; font-size: 15px; letter-spacing: 1px;
+    color: var(--accent2); text-shadow: 3px 3px 0 var(--ink); margin-bottom: 6px;
+  }
+  h1 .sub { color: var(--dim); font-family: 'VT323', monospace; font-size: 17px; text-shadow: none; display: block; margin-top: 6px; }
+  .panel {
+    background: var(--panel); border: 4px solid var(--border);
+    box-shadow: 0 5px 0 var(--ink), inset 0 0 0 2px rgba(0,0,0,.25);
+    padding: 14px; margin: 14px 0;
+  }
+  .ptitle { font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--accent); margin-bottom: 8px; }
+
+  .quest { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 3px solid var(--border); flex-wrap: wrap; }
+  .quest:last-child { border-bottom: none; }
+  .quest .name { flex: 1 1 40%; font-size: 21px; }
+  .quest .xp { color: var(--accent2); font-size: 17px; white-space: nowrap; }
+  .quest.done .name { color: var(--dim); text-decoration: line-through; }
+
+  button {
+    cursor: pointer; background: var(--panel2); color: var(--text);
+    border: 3px solid var(--border); box-shadow: 0 3px 0 var(--ink);
+    font-family: 'VT323', monospace; font-size: 18px; padding: 7px 12px;
+  }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  button.done-btn {
+    background: var(--accent); color: var(--ink); border-color: var(--ink);
+    font-family: 'Press Start 2P', monospace; font-size: 9px; padding: 9px 10px 7px;
+  }
+  button.small { padding: 5px 9px; font-size: 16px; }
+  button.danger { color: var(--danger); }
+
+  input {
+    background: var(--ink); border: 3px solid var(--border); color: var(--text);
+    padding: 9px 10px; font-family: 'VT323', monospace; font-size: 19px; width: 100%;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  .addrow { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .addrow input[type="text"], .addrow input:not([type]) { flex: 1; }
+
+  .muted { color: var(--dim); font-size: 17px; margin-top: 6px; line-height: 1.4; }
+
+  .badge {
+    font-size: 15px; padding: 3px 8px; border: 2px solid var(--border);
+    color: var(--dim); white-space: nowrap;
+  }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+  .tab {
+    font-family: 'Press Start 2P', monospace; font-size: 8px; letter-spacing: .5px;
+    background: var(--panel); border: 3px solid var(--border); color: var(--dim);
+    padding: 9px 10px 7px; cursor: pointer; box-shadow: 0 3px 0 var(--ink);
+  }
+  .tab:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  .tab.active { color: var(--ink); background: var(--accent); border-color: var(--accent); }
+
+  /* login */
+  #loginPanel { max-width: 380px; margin: 60px auto; }
+  #loginPanel h1 { margin-bottom: 16px; }
+  #loginPanel input { margin-bottom: 12px; }
+  #loginPanel button { width: 100%; }
+  #error { color: var(--danger); font-size: 18px; margin-top: 8px; min-height: 20px; }
+
+  /* celebrations */
+  #celebrate { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.78); z-index: 60; text-align: center; padding-top: 30vh; }
+  #celebrate .box {
+    display: inline-block; background: var(--panel); border: 4px solid var(--accent);
+    box-shadow: 0 6px 0 var(--ink); padding: 26px 36px; font-family: 'Press Start 2P', monospace; font-size: 13px;
+  }
+  #celebrate .box .big { font-size: 44px; display: block; margin-bottom: 14px; }
+
+  .hidden { display: none !important; }
+  #signout { float: right; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="loginPanel" class="panel hidden">
+  <h1>Side Quests</h1>
+  <input id="email" type="email" placeholder="Email" autocomplete="username">
+  <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+  <button id="loginBtn">Sign in</button>
+  <div id="error"></div>
+</div>
+
+<div id="app" class="hidden">
+  <button id="signout" class="small">Sign out</button>
+  <h1>Side Quests <span class="sub">real-world quests, same account as Goals &amp; Side Quests</span></h1>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="panel" id="listPanel">
+    <div id="questList"></div>
+    <div class="addrow" id="addRow">
+      <input id="newTitle" type="text" placeholder="Add a side quest...">
+      <button id="addBtn">Add</button>
+    </div>
+    <div class="muted">
+      Start a side quest before you head out, then tell Instinct in chat so your location can be checked. Location checks come from your phone's location history and can miss updates.
+    </div>
+  </div>
+
+  <div class="panel hidden" id="completedPanel">
+    <div id="completedList"></div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle">BACK TO THE TRACKER</div>
+    <div class="muted">Homework, reminders, goals, XP and levels stay on
+      <a href="https://wheeeeeeeeeeeeeee.github.io/goals-checklist/">Goals &amp; Side Quests</a>.
+      Finishing a side quest still earns its XP there.</div>
+  </div>
+</div>
+
+<div id="celebrate"><div class="box"><span class="big">&#127881;</span><span id="celebrateText">Quest complete!</span></div></div>
+
+<script src="config.js"></script>
+<script>
+'use strict';
+
+const SUPABASE_URL = window.__SUPABASE_URL__;
+const SUPABASE_KEY = window.__SUPABASE_KEY__;
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+});
+
+const SQ_XP = 50;
+const TABS = [
+  { id: 'open', label: 'Open Quests' },
+  { id: 'completed', label: 'Completed' }
+];
+let currentTab = 'open';
+let quests = [];
+
+const $ = id => document.getElementById(id);
+const err = m => { $('error').textContent = m || ''; };
+
+async function init() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) { $('loginPanel').classList.remove('hidden'); err('App not configured yet.'); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) showApp(); else $('loginPanel').classList.remove('hidden');
+  sb.auth.onAuthStateChange((_e, s) => { if (s) showApp(); });
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sb.auth.getSession(); });
+
+$('loginBtn').onclick = async () => {
+  err('');
+  const { error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+  if (error) err(error.message);
+};
+$('signout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+function showApp() {
+  $('loginPanel').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  renderTabs();
+  loadQuests();
+}
+
+function renderTabs() {
+  $('tabs').innerHTML = '';
+  TABS.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'tab' + (c.id === currentTab ? ' active' : '');
+    b.textContent = c.label;
+    b.onclick = () => { currentTab = c.id; renderTabs(); renderMain(); };
+    $('tabs').appendChild(b);
+  });
+}
+
+function renderMain() {
+  const isCompleted = currentTab === 'completed';
+  $('listPanel').classList.toggle('hidden', isCompleted);
+  $('completedPanel').classList.toggle('hidden', !isCompleted);
+  if (isCompleted) renderCompleted(); else renderQuests();
+}
+
+async function loadQuests() {
+  const { data, error } = await sb.from('quests').select('*').eq('category', 'sidequest').order('created_at', { ascending: true });
+  if (error) { console.error(error); return; }
+  quests = data || [];
+  renderMain();
+}
+
+function renderQuests() {
+  const list = quests.filter(q => q.status === 'open');
+  const el = $('questList');
+  el.innerHTML = list.length ? '' : '<div class="muted">No open side quests.</div>';
+  list.forEach(q => {
+    const row = document.createElement('div');
+    row.className = 'quest';
+    const started = q.started_at ? ' <span class="badge">started ' + new Date(q.started_at).toLocaleDateString() + '</span>' : '';
+    row.innerHTML = '<span class="name"></span> <span class="xp">+' + q.xp + ' XP</span>' + started;
+    row.querySelector('.name').textContent = q.title;
+
+    if (!q.started_at) {
+      const s = document.createElement('button');
+      s.className = 'small'; s.textContent = 'Start';
+      s.onclick = async () => { await sb.from('quests').update({ started_at: new Date().toISOString() }).eq('id', q.id); loadQuests(); };
+      row.appendChild(s);
+    }
+    const d = document.createElement('button');
+    d.className = 'done-btn'; d.textContent = 'Done';
+    d.onclick = () => completeQuest(q);
+    row.appendChild(d);
+    const del = document.createElement('button');
+    del.className = 'small danger'; del.textContent = 'x';
+    del.onclick = async () => { if (confirm('Delete "' + q.title + '"?')) { await sb.from('quests').delete().eq('id', q.id); loadQuests(); } };
+    row.appendChild(del);
+    el.appendChild(row);
+  });
+}
+
+function renderCompleted() {
+  const done = quests.filter(q => q.status === 'done').sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+  const el = $('completedList');
+  el.innerHTML = done.length ? '' : '<div class="muted">No completed side quests yet.</div>';
+  done.forEach(q => {
+    const row = document.createElement('div');
+    row.className = 'quest done';
+    row.innerHTML = '<span class="name"></span> <span class="xp">+' + q.xp + ' XP</span> <span class="badge">' + new Date(q.completed_at).toLocaleDateString() + '</span>';
+    row.querySelector('.name').textContent = q.title;
+    el.appendChild(row);
+  });
+}
+
+$('addBtn').onclick = async () => {
+  const title = $('newTitle').value.trim();
+  if (!title) return;
+  const { data: { user } } = await sb.auth.getUser();
+  await sb.from('quests').insert({ title, category: 'sidequest', xp: SQ_XP, created_by: user.id });
+  $('newTitle').value = '';
+  loadQuests();
+};
+
+async function completeQuest(q) {
+  await sb.from('quests').update({ status: 'done', completed_at: new Date().toISOString() }).eq('id', q.id);
+  celebrate('Quest complete! +' + q.xp + ' XP');
+  await loadQuests();
+}
+
+function celebrate(text) {
+  $('celebrateText').textContent = text;
+  $('celebrate').style.display = 'block';
+  setTimeout(() => { $('celebrate').style.display = 'none'; }, 1400);
+}
+
+init();
+
+</script>
+</body>
+</html>
