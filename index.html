@@ -77,6 +77,15 @@
     font-size: 15px; padding: 3px 8px; border: 2px solid var(--border);
     color: var(--dim); white-space: nowrap;
   }
+  button.badge { cursor: pointer; background: none; box-shadow: none; font-family: 'VT323', monospace; }
+  button.badge:active { transform: none; box-shadow: none; }
+  .cathead {
+    font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--accent2);
+    text-shadow: 2px 2px 0 var(--ink); margin: 14px 0 2px; letter-spacing: 1px;
+  }
+  .cat-editor { display: flex; gap: 8px; align-items: center; padding: 6px 0 6px 12px; flex-wrap: wrap; }
+  .cat-editor input { flex: 1; min-width: 120px; }
+  #newCat { max-width: 170px; }
 
   .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
   .tab {
@@ -121,21 +130,17 @@
   <button id="signout" class="small">Sign out</button>
   <h1>Side Quests <span class="sub">real-world quests, same account as Goals</span></h1>
 
-  <div class="tabs" id="tabs"></div>
-
   <div class="panel" id="listPanel">
     <div id="questList"></div>
     <div class="addrow" id="addRow">
       <input id="newTitle" type="text" placeholder="Add a side quest...">
+      <input id="newCat" type="text" list="catList" placeholder="Category (optional)">
+      <datalist id="catList"></datalist>
       <button id="addBtn">Add</button>
     </div>
     <div class="muted">
       Start a side quest before you head out, then tell Instinct in chat so your location can be checked. Location checks come from your phone's location history and can miss updates.
     </div>
-  </div>
-
-  <div class="panel hidden" id="completedPanel">
-    <div id="completedList"></div>
   </div>
 
   <div class="panel">
@@ -160,11 +165,6 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 const SQ_XP = 50;
-const TABS = [
-  { id: 'open', label: 'Open Quests' },
-  { id: 'completed', label: 'Completed' }
-];
-let currentTab = 'open';
 let quests = [];
 
 const $ = id => document.getElementById(id);
@@ -188,83 +188,119 @@ $('signout').onclick = async () => { await sb.auth.signOut(); location.reload();
 function showApp() {
   $('loginPanel').classList.add('hidden');
   $('app').classList.remove('hidden');
-  renderTabs();
   loadQuests();
 }
 
-function renderTabs() {
-  $('tabs').innerHTML = '';
-  TABS.forEach(c => {
-    const b = document.createElement('button');
-    b.className = 'tab' + (c.id === currentTab ? ' active' : '');
-    b.textContent = c.label;
-    b.onclick = () => { currentTab = c.id; renderTabs(); renderMain(); };
-    $('tabs').appendChild(b);
-  });
-}
-
-function renderMain() {
-  const isCompleted = currentTab === 'completed';
-  $('listPanel').classList.toggle('hidden', isCompleted);
-  $('completedPanel').classList.toggle('hidden', !isCompleted);
-  if (isCompleted) renderCompleted(); else renderQuests();
-}
-
 async function loadQuests() {
-  const { data, error } = await sb.from('quests').select('*').eq('category', 'sidequest').order('created_at', { ascending: true });
+  const { data, error } = await sb.from('quests').select('*').like('category', 'sidequest%').eq('status', 'open').order('created_at', { ascending: true });
   if (error) { console.error(error); return; }
   quests = data || [];
-  renderMain();
+  const seen = new Map();
+  quests.forEach(q => { const c = questCat(q); if (c && !seen.has(c.toLowerCase())) seen.set(c.toLowerCase(), c); });
+  $('catList').innerHTML = '';
+  [...seen.values()].sort().forEach(c => {
+    const o = document.createElement('option');
+    o.value = c;
+    $('catList').appendChild(o);
+  });
+  renderQuests();
+}
+
+function questCat(q) {
+  const c = q.category || '';
+  return c.indexOf('sidequest:') === 0 ? c.slice(10).trim() : '';
 }
 
 function renderQuests() {
-  const list = quests.filter(q => q.status === 'open');
+  const list = quests;
   const el = $('questList');
   el.innerHTML = list.length ? '' : '<div class="muted">No open side quests.</div>';
-  list.forEach(q => {
-    const row = document.createElement('div');
-    row.className = 'quest';
-    const started = q.started_at ? ' <span class="badge">started ' + new Date(q.started_at).toLocaleDateString() + '</span>' : '';
-    row.innerHTML = '<span class="name"></span> <span class="xp">+' + q.xp + ' XP</span>' + started;
-    row.querySelector('.name').textContent = q.title;
 
-    if (!q.started_at) {
-      const s = document.createElement('button');
-      s.className = 'small'; s.textContent = 'Start';
-      s.onclick = async () => { await sb.from('quests').update({ started_at: new Date().toISOString() }).eq('id', q.id); loadQuests(); };
-      row.appendChild(s);
+  // group by category (case-insensitive), uncategorized first
+  const groups = new Map();
+  list.forEach(q => {
+    const cat = questCat(q);
+    const key = cat.toLowerCase();
+    if (!groups.has(key)) groups.set(key, { label: cat, items: [] });
+    groups.get(key).items.push(q);
+  });
+  const ordered = [...groups.values()].sort((a, b) => (a.label === '' ? -1 : b.label === '' ? 1 : a.label.localeCompare(b.label)));
+
+  ordered.forEach(g => {
+    if (g.label !== '') {
+      const h = document.createElement('div');
+      h.className = 'cathead';
+      h.textContent = g.label;
+      el.appendChild(h);
     }
-    const d = document.createElement('button');
-    d.className = 'done-btn'; d.textContent = 'Done';
-    d.onclick = () => completeQuest(q);
-    row.appendChild(d);
-    const del = document.createElement('button');
-    del.className = 'small danger'; del.textContent = 'x';
-    del.onclick = async () => { if (confirm('Delete "' + q.title + '"?')) { await sb.from('quests').delete().eq('id', q.id); loadQuests(); } };
-    row.appendChild(del);
-    el.appendChild(row);
+    g.items.forEach(q => {
+      const row = document.createElement('div');
+      row.className = 'quest';
+      const started = q.started_at ? ' <span class="badge">started ' + new Date(q.started_at).toLocaleDateString() + '</span>' : '';
+      row.innerHTML = '<span class="name"></span> <span class="xp">+' + q.xp + ' XP</span>' + started;
+      row.querySelector('.name').textContent = q.title;
+
+      const catBtn = document.createElement('button');
+      catBtn.className = 'badge';
+      catBtn.title = 'Change category';
+      catBtn.textContent = questCat(q) || '+ cat';
+      catBtn.onclick = () => toggleCatEditor(row, q);
+      row.appendChild(catBtn);
+
+      if (!q.started_at) {
+        const s = document.createElement('button');
+        s.className = 'small'; s.textContent = 'Start';
+        s.onclick = async () => { await sb.from('quests').update({ started_at: new Date().toISOString() }).eq('id', q.id); loadQuests(); };
+        row.appendChild(s);
+      }
+      const d = document.createElement('button');
+      d.className = 'done-btn'; d.textContent = 'Done';
+      d.onclick = () => completeQuest(q);
+      row.appendChild(d);
+      const del = document.createElement('button');
+      del.className = 'small danger'; del.textContent = 'x';
+      del.onclick = async () => { if (confirm('Delete "' + q.title + '"?')) { await sb.from('quests').delete().eq('id', q.id); loadQuests(); } };
+      row.appendChild(del);
+      el.appendChild(row);
+    });
   });
 }
 
-function renderCompleted() {
-  const done = quests.filter(q => q.status === 'done').sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
-  const el = $('completedList');
-  el.innerHTML = done.length ? '' : '<div class="muted">No completed side quests yet.</div>';
-  done.forEach(q => {
-    const row = document.createElement('div');
-    row.className = 'quest done';
-    row.innerHTML = '<span class="name"></span> <span class="xp">+' + q.xp + ' XP</span> <span class="badge">' + new Date(q.completed_at).toLocaleDateString() + '</span>';
-    row.querySelector('.name').textContent = q.title;
-    el.appendChild(row);
-  });
+function toggleCatEditor(row, q) {
+  const next = row.nextSibling;
+  if (next && next.classList && next.classList.contains('cat-editor')) { next.remove(); return; }
+  const ed = document.createElement('div');
+  ed.className = 'cat-editor';
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.placeholder = 'Category (blank = none)';
+  inp.value = questCat(q);
+  inp.setAttribute('list', 'catList');
+  const save = document.createElement('button');
+  save.className = 'small';
+  save.textContent = 'Save';
+  save.onclick = async () => {
+    const cat = inp.value.trim();
+    await sb.from('quests').update({ category: cat ? 'sidequest:' + cat : 'sidequest' }).eq('id', q.id);
+    loadQuests();
+  };
+  const cancel = document.createElement('button');
+  cancel.className = 'small';
+  cancel.textContent = 'x';
+  cancel.onclick = () => ed.remove();
+  ed.appendChild(inp); ed.appendChild(save); ed.appendChild(cancel);
+  row.after(ed);
+  inp.focus();
 }
 
 $('addBtn').onclick = async () => {
   const title = $('newTitle').value.trim();
   if (!title) return;
+  const cat = $('newCat').value.trim();
   const { data: { user } } = await sb.auth.getUser();
-  await sb.from('quests').insert({ title, category: 'sidequest', xp: SQ_XP, created_by: user.id });
+  await sb.from('quests').insert({ title, category: cat ? 'sidequest:' + cat : 'sidequest', xp: SQ_XP, created_by: user.id });
   $('newTitle').value = '';
+  $('newCat').value = '';
   loadQuests();
 };
 
