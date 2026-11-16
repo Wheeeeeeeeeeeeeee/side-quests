@@ -89,6 +89,8 @@
 
   .rollbox { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
   .chip { cursor:pointer; user-select:none; padding:5px 10px; border:3px solid var(--border); background:var(--panel2); color:var(--dim); font-size:18px; }
+  button.chip { font-family: 'VT323', monospace; box-shadow:none; }
+  button.chip:active { transform:none; box-shadow:none; }
   .chip.on { background:var(--accent); color:var(--ink); border-color:var(--accent); }
   #rollResult { margin-top:10px; padding:10px; border:3px dashed var(--accent2); display:none; font-size:22px; }
   #rollResult .rcat { color:var(--dim); font-size:16px; display:block; }
@@ -138,7 +140,7 @@
 
   <div class="panel" id="rollPanel">
     <div class="ptitle">ROLL A SIDE QUEST</div>
-    <div class="muted" style="margin-top:0">Pick categories to roll from (none picked = all).</div>
+    <div class="muted" style="margin-top:0">Choose All or pick one or more categories to roll from.</div>
     <div class="rollbox" id="rollCats"></div>
     <button id="rollBtn">&#127922; Roll</button>
     <div id="rollResult"></div>
@@ -349,13 +351,25 @@ function renderRollCats() {
   const labels = new Map();
   quests.forEach(q => { const c = catLabel(q); if (!labels.has(c.toLowerCase())) labels.set(c.toLowerCase(), c); });
   const all = [...labels.values()].sort();
-  const sel = getSel().filter(c => labels.has(c.toLowerCase()));
+  const stored = getSel();
+  const sel = stored.filter(c => labels.has(c.toLowerCase()));
+  if (sel.length !== stored.length) setSel(sel);
   const box = $('rollCats');
   box.innerHTML = '';
+  const allOn = sel.length === 0;
+  const allChip = document.createElement('button');
+  allChip.type = 'button';
+  allChip.className = 'chip' + (allOn ? ' on' : '');
+  allChip.setAttribute('aria-pressed', String(allOn));
+  allChip.textContent = 'All';
+  allChip.onclick = () => { setSel([]); renderRollCats(); };
+  box.appendChild(allChip);
   all.forEach(c => {
-    const b = document.createElement('span');
+    const b = document.createElement('button');
+    b.type = 'button';
     const on = sel.some(x => x.toLowerCase() === c.toLowerCase());
     b.className = 'chip' + (on ? ' on' : '');
+    b.setAttribute('aria-pressed', String(on));
     b.textContent = c;
     b.onclick = () => {
       const cur = getSel();
