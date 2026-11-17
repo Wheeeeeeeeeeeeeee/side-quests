@@ -147,7 +147,7 @@
 
   <div class="panel" id="rollPanel">
     <div class="ptitle">ROLL A SIDE QUEST</div>
-    <div class="muted" style="margin-top:0">Choose All or pick one or more categories to roll from.</div>
+    <div class="muted" style="margin-top:0">Choose categories and roll. Finish a quest, then roll and do it again.</div>
     <div class="rollbox" id="rollCats"></div>
     <button id="rollBtn">&#127922; Roll</button>
     <div id="rollResult" role="status" aria-live="polite"></div>
@@ -167,7 +167,7 @@
     <div class="ptitle">BACK TO THE TRACKER</div>
     <div class="muted">Homework, reminders, goals, XP and levels stay on
       <a href="https://wheeeeeeeeeeeeeee.github.io/goals-checklist/">Goals</a>.
-      Finishing a side quest still earns its XP there.</div>
+      Every completion earns XP there. Side quests stay available so you can do them again.</div>
   </div>
 </div>
 
@@ -222,9 +222,19 @@ function showApp() {
 }
 
 async function loadQuests() {
-  const { data, error } = await sb.from('quests').select('*').like('category', 'sidequest%').eq('status', 'open').order('created_at', { ascending: true });
+  const { data, error } = await sb.from('quests').select('*').like('category', 'sidequest%').order('created_at', { ascending: true });
   if (error) { console.error(error); return; }
-  quests = data || [];
+  const rows = data || [];
+  // Original quest rows are reusable templates. Extra completed attempts remain
+  // ordinary done rows for Goals XP/history, but never become roll templates.
+  quests = rows.filter(q => q.category === 'sidequest' || q.category.startsWith('sidequest:'));
+  quests.forEach(q => {
+    const attempts = rows.filter(a => a.category === 'sidequest-history:' + q.id && a.status === 'done');
+    if (q.status === 'done') attempts.push(q);
+    q.completionCount = attempts.length;
+    q.lastCompletedAt = attempts.reduce((latest, a) => !latest || a.completed_at > latest ? a.completed_at : latest, null);
+    q.inProgress = !!q.started_at && (!q.lastCompletedAt || q.started_at > q.lastCompletedAt);
+  });
   const seen = new Map();
   quests.forEach(q => { const c = questCat(q); if (c && !seen.has(c.toLowerCase())) seen.set(c.toLowerCase(), c); });
   $('catList').innerHTML = '';
@@ -245,7 +255,7 @@ function questCat(q) {
 function renderQuests() {
   const list = quests;
   const el = $('questList');
-  el.innerHTML = list.length ? '' : '<div class="muted">No open side quests.</div>';
+  el.innerHTML = list.length ? '' : '<div class="muted">No side quests yet.</div>';
 
   // group by category (case-insensitive), uncategorized first
   const groups = new Map();
@@ -285,14 +295,20 @@ function renderQuests() {
       catBtn.onclick = () => toggleCatEditor(row, q);
       meta.appendChild(catBtn);
       const st = document.createElement('span');
-      st.className = 'badge ' + (q.started_at ? 'st-go' : 'st-new');
-      st.textContent = q.started_at ? 'In progress - since ' + new Date(q.started_at).toLocaleDateString() : 'Not started';
+      st.className = 'badge ' + (q.inProgress ? 'st-go' : 'st-new');
+      st.textContent = q.inProgress ? 'In progress - since ' + new Date(q.started_at).toLocaleDateString() : q.completionCount ? 'Ready again' : 'Not started';
       meta.appendChild(st);
+      if (q.completionCount) {
+        const count = document.createElement('span'); count.className = 'badge';
+        count.textContent = 'Completed ' + q.completionCount + (q.completionCount === 1 ? ' time' : ' times');
+        count.title = 'Last completed ' + new Date(q.lastCompletedAt).toLocaleString();
+        meta.appendChild(count);
+      }
       row.appendChild(meta);
 
       const act = document.createElement('div');
       act.className = 'actions';
-      if (!q.started_at) {
+      if (!q.inProgress) {
         const s = document.createElement('button');
         s.className = 'small'; s.textContent = 'Start';
         s.onclick = async () => { await sb.from('quests').update({ started_at: new Date().toISOString() }).eq('id', q.id); loadQuests(); };
@@ -364,13 +380,42 @@ $('addBtn').onclick = async () => {
   loadQuests();
 };
 
+const completingQuests = new Set();
 async function completeQuest(q) {
-  await sb.from('quests').update({ status: 'done', completed_at: new Date().toISOString() }).eq('id', q.id);
-  if (window.__lastRoll === q.id) window.__lastRoll = null;
-  const rr = $('rollResult');
-  if (rr.style.display === 'block') rr.textContent = 'Quest complete! Roll again for a new one.';
-  celebrate('Quest complete! +' + q.xp + ' XP');
-  await loadQuests();
+  if (completingQuests.has(q.id)) return;
+  completingQuests.add(q.id);
+  const buttons = document.querySelectorAll('.quest[data-id="' + q.id + '"] button');
+  buttons.forEach(b => b.disabled = true);
+  try {
+    const completedAt = new Date().toISOString();
+    let result;
+    if (q.status === 'done') {
+      const { data: { user }, error: authError } = await sb.auth.getUser();
+      if (authError || !user) throw authError || new Error('Please sign in again.');
+      // Keep the original completion intact; each repeat is its own XP record.
+      result = await sb.from('quests').insert({
+        title: q.title, category: 'sidequest-history:' + q.id, xp: q.xp,
+        created_by: user.id, status: 'done', completed_at: completedAt,
+        started_at: q.inProgress ? q.started_at : null
+      }).select('id');
+    } else {
+      result = await sb.from('quests').update({ status: 'done', completed_at: completedAt }).eq('id', q.id).eq('status', 'open').select('id');
+    }
+    if (result.error) throw result.error;
+    if (!result.data || !result.data.length) { await loadQuests(); return; }
+    // Update the in-memory template before reloading so a rapid second tap
+    // cannot overwrite the first completion.
+    q.status = 'done';
+    q.inProgress = false;
+    const rr = $('rollResult');
+    if (rr.style.display === 'block') rr.textContent = 'Quest complete! Ready to roll and do again.';
+    celebrate('Quest complete! +' + q.xp + ' XP');
+    await loadQuests();
+  } catch (e) {
+    alert('Could not save completion: ' + e.message);
+  } finally {
+    setTimeout(() => { completingQuests.delete(q.id); buttons.forEach(b => b.disabled = false); }, 1400);
+  }
 }
 
 function celebrate(text) {
@@ -419,11 +464,11 @@ function renderRollCats() {
 let rollCount = 0;
 function doRoll() {
   const sel = getSel().map(x => x.toLowerCase());
-  let pool = quests.filter(q => q.status !== 'done' && (!sel.length || sel.includes(catLabel(q).toLowerCase())));
+  let pool = quests.filter(q => !sel.length || sel.includes(catLabel(q).toLowerCase()));
   const r = $('rollResult');
   r.style.display = 'block';
   if (window.__lastRoll && !pool.some(q => q.id === window.__lastRoll)) window.__lastRoll = null;
-  if (!pool.length) { r.textContent = sel.length ? 'No open side quests in those categories. Switch back to All or add some below!' : 'No open side quests to roll yet. Add one below!'; return; }
+  if (!pool.length) { r.textContent = sel.length ? 'No side quests in those categories. Switch back to All or add some below!' : 'No side quests to roll yet. Add one below!'; return; }
   const availableCount = pool.length;
   if (pool.length > 1 && window.__lastRoll) { const p2 = pool.filter(q => q.id !== window.__lastRoll); if (p2.length) pool = p2; }
   const q = pool[Math.floor(Math.random() * pool.length)];
@@ -433,7 +478,7 @@ function doRoll() {
   r.innerHTML = '<span class="rcat"></span><span class="rt"></span><div class="muted rnote"></div><div class="ractions"></div>';
   r.querySelector('.rcat').textContent = catLabel(q) + ' - +' + q.xp + ' XP';
   r.querySelector('.rt').textContent = q.title;
-  r.querySelector('.rnote').textContent = 'Roll ' + rollCount + (availableCount === 1 ? ' - Only one open quest here; repeat rolls are OK.' : ' - Keep rolling until you find one you like.');
+  r.querySelector('.rnote').textContent = 'Roll ' + rollCount + (availableCount === 1 ? ' - One quest here. Roll it and do it as often as you like.' : ' - Keep rolling until you find one you like.');
   const a = r.querySelector('.ractions');
   const view = document.createElement('button'); view.className = 'small'; view.textContent = 'View in list';
   view.onclick = () => {
