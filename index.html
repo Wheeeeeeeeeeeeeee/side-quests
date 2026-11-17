@@ -150,7 +150,7 @@
     <div class="muted" style="margin-top:0">Choose All or pick one or more categories to roll from.</div>
     <div class="rollbox" id="rollCats"></div>
     <button id="rollBtn">&#127922; Roll</button>
-    <div id="rollResult"></div>
+    <div id="rollResult" role="status" aria-live="polite"></div>
   </div>
 
   <div class="panel" id="listPanel">
@@ -416,6 +416,7 @@ function renderRollCats() {
     box.appendChild(b);
   });
 }
+let rollCount = 0;
 function doRoll() {
   const sel = getSel().map(x => x.toLowerCase());
   let pool = quests.filter(q => q.status !== 'done' && (!sel.length || sel.includes(catLabel(q).toLowerCase())));
@@ -423,20 +424,26 @@ function doRoll() {
   r.style.display = 'block';
   if (window.__lastRoll && !pool.some(q => q.id === window.__lastRoll)) window.__lastRoll = null;
   if (!pool.length) { r.textContent = sel.length ? 'No open side quests in those categories. Switch back to All or add some below!' : 'No open side quests to roll yet. Add one below!'; return; }
+  const availableCount = pool.length;
   if (pool.length > 1 && window.__lastRoll) { const p2 = pool.filter(q => q.id !== window.__lastRoll); if (p2.length) pool = p2; }
   const q = pool[Math.floor(Math.random() * pool.length)];
   window.__lastRoll = q.id;
+  rollCount += 1;
+  $('rollBtn').textContent = '🎲 Roll again';
   r.innerHTML = '<span class="rcat"></span><span class="rt"></span><div class="muted rnote"></div><div class="ractions"></div>';
   r.querySelector('.rcat').textContent = catLabel(q) + ' - +' + q.xp + ' XP';
   r.querySelector('.rt').textContent = q.title;
-  r.querySelector('.rnote').textContent = 'Highlighted in your list below.';
+  r.querySelector('.rnote').textContent = 'Roll ' + rollCount + (availableCount === 1 ? ' - Only one open quest here; repeat rolls are OK.' : ' - Keep rolling until you find one you like.');
   const a = r.querySelector('.ractions');
-  const again = document.createElement('button'); again.className = 'small'; again.textContent = 'Reroll';
-  again.onclick = doRoll;
-  a.appendChild(again);
+  const view = document.createElement('button'); view.className = 'small'; view.textContent = 'View in list';
+  view.onclick = () => {
+    const card = document.querySelector('.quest[data-id="' + q.id + '"]');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+  a.appendChild(view);
   document.querySelectorAll('.quest.hl').forEach(x => x.classList.remove('hl'));
   const card = document.querySelector('.quest[data-id="' + q.id + '"]');
-  if (card) { card.classList.add('hl'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  if (card) card.classList.add('hl');
 }
 $('rollBtn').onclick = doRoll;
 
@@ -445,4 +452,3 @@ init();
 </script>
 </body>
 </html>
-
