@@ -57,8 +57,6 @@
   .badge.st-go { color: var(--ink); background: var(--accent2); border-color: var(--accent2); }
   .menu { position: absolute; right: 0; bottom: 48px; background: var(--panel2); border: 3px solid var(--border); box-shadow: 0 3px 0 var(--ink); z-index: 5; }
   .menu button { display: block; width: 100%; text-align: left; box-shadow: none; border: none; color: var(--danger); min-width: 140px; }
-  details.how summary { cursor: pointer; color: var(--accent); font-size: 14px; margin-top: 8px; }
-  details.how .muted { margin-top: 4px; }
   button {
     cursor: pointer; background: var(--panel2); color: var(--text);
     border: 3px solid var(--border); box-shadow: 0 3px 0 var(--ink);
@@ -163,10 +161,6 @@
       <datalist id="catList"></datalist>
       <button id="addBtn">Add quest</button>
     </div>
-    <details class="how">
-      <summary>How checking works</summary>
-      <div class="muted">Start a side quest before you head out, then tell Instinct in chat so your location can be checked. Location checks come from your phone's location history and can miss updates.</div>
-    </details>
   </div>
 
   <div class="panel">
@@ -202,7 +196,7 @@ async function init() {
   if (session) showApp(); else $('loginPanel').classList.remove('hidden');
   sb.auth.onAuthStateChange((_e, s) => { if (s) showApp(); });
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) sb.auth.getSession(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { sb.auth.getSession(); if (!$('app').classList.contains('hidden')) loadQuests(); } });
 
 $('loginBtn').onclick = async () => {
   err('');
@@ -212,7 +206,8 @@ $('loginBtn').onclick = async () => {
     ({ error } = await sb.auth.signInWithPassword({ email: idv, password: pwv }));
   } else {
     try {
-      const r = await fetch(SUPABASE_URL + '/functions/v1/username-login', { method: 'POST', headers: { 'content-type': 'application/json', 'apikey': SUPABASE_KEY }, body: JSON.stringify({ username: idv, password: pwv }) });
+      const r = await fetch(SUPABASE_URL + '/func
+tions/v1/username-login', { method: 'POST', headers: { 'content-type': 'application/json', 'apikey': SUPABASE_KEY }, body: JSON.stringify({ username: idv, password: pwv }) });
       if (!r.ok) error = new Error('Invalid login credentials');
       else { const s = await r.json(); ({ error } = await sb.auth.setSession({ access_token: s.access_token, refresh_token: s.refresh_token })); }
     } catch (e) { error = e; }
@@ -372,6 +367,9 @@ $('addBtn').onclick = async () => {
 
 async function completeQuest(q) {
   await sb.from('quests').update({ status: 'done', completed_at: new Date().toISOString() }).eq('id', q.id);
+  if (window.__lastRoll === q.id) window.__lastRoll = null;
+  const rr = $('rollResult');
+  if (rr.style.display === 'block') rr.textContent = 'Quest complete! Roll again for a new one.';
   celebrate('Quest complete! +' + q.xp + ' XP');
   await loadQuests();
 }
@@ -421,10 +419,11 @@ function renderRollCats() {
 }
 function doRoll() {
   const sel = getSel().map(x => x.toLowerCase());
-  let pool = quests.filter(q => !sel.length || sel.includes(catLabel(q).toLowerCase()));
+  let pool = quests.filter(q => q.status !== 'done' && (!sel.length || sel.includes(catLabel(q).toLowerCase())));
   const r = $('rollResult');
   r.style.display = 'block';
-  if (!pool.length) { r.textContent = 'No open side quests in those categories. Add some below!'; return; }
+  if (window.__lastRoll && !pool.some(q => q.id === window.__lastRoll)) window.__lastRoll = null;
+  if (!pool.length) { r.textContent = sel.length ? 'No open side quests in those categories. Switch back to All or add some below!' : 'No open side quests to roll yet. Add one below!'; return; }
   if (pool.length > 1 && window.__lastRoll) { const p2 = pool.filter(q => q.id !== window.__lastRoll); if (p2.length) pool = p2; }
   const q = pool[Math.floor(Math.random() * pool.length)];
   window.__lastRoll = q.id;
