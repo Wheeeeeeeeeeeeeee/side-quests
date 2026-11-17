@@ -206,8 +206,7 @@ $('loginBtn').onclick = async () => {
     ({ error } = await sb.auth.signInWithPassword({ email: idv, password: pwv }));
   } else {
     try {
-      const r = await fetch(SUPABASE_URL + '/func
-tions/v1/username-login', { method: 'POST', headers: { 'content-type': 'application/json', 'apikey': SUPABASE_KEY }, body: JSON.stringify({ username: idv, password: pwv }) });
+      const r = await fetch(SUPABASE_URL + '/functions/v1/username-login', { method: 'POST', headers: { 'content-type': 'application/json', 'apikey': SUPABASE_KEY }, body: JSON.stringify({ username: idv, password: pwv }) });
       if (!r.ok) error = new Error('Invalid login credentials');
       else { const s = await r.json(); ({ error } = await sb.auth.setSession({ access_token: s.access_token, refresh_token: s.refresh_token })); }
     } catch (e) { error = e; }
