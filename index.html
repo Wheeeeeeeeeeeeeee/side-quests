@@ -227,9 +227,9 @@ async function loadQuests() {
   const rows = data || [];
   // Original quest rows are reusable templates. Extra completed attempts remain
   // ordinary done rows for Goals XP/history, but never become roll templates.
-  quests = rows.filter(q => q.category === 'sidequest' || q.category.startsWith('sidequest:'));
+  quests = rows.filter(q => (q.category === 'sidequest' || q.category.startsWith('sidequest:')) && !/^sidequest:history:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q.category));
   quests.forEach(q => {
-    const attempts = rows.filter(a => a.category === 'sidequest-history:' + q.id && a.status === 'done');
+    const attempts = rows.filter(a => a.category === 'sidequest:history:' + q.id && a.status === 'done');
     if (q.status === 'done') attempts.push(q);
     q.completionCount = attempts.length;
     q.lastCompletedAt = attempts.reduce((latest, a) => !latest || a.completed_at > latest ? a.completed_at : latest, null);
@@ -394,7 +394,7 @@ async function completeQuest(q) {
       if (authError || !user) throw authError || new Error('Please sign in again.');
       // Keep the original completion intact; each repeat is its own XP record.
       result = await sb.from('quests').insert({
-        title: q.title, category: 'sidequest-history:' + q.id, xp: q.xp,
+        title: q.title, category: 'sidequest:history:' + q.id, xp: q.xp,
         created_by: user.id, status: 'done', completed_at: completedAt,
         started_at: q.inProgress ? q.started_at : null
       }).select('id');
