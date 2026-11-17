@@ -24,7 +24,7 @@
   html { -webkit-text-size-adjust: 100%; }
   body {
     background: var(--bg); color: var(--text);
-    font-family: 'VT323', 'Courier New', monospace; font-size: 20px; line-height: 1.25;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.4;
     padding: 16px; max-width: 640px; margin: 0 auto;
   }
   body::after {
@@ -36,7 +36,7 @@
     font-family: 'Press Start 2P', monospace; font-size: 15px; letter-spacing: 1px;
     color: var(--accent2); text-shadow: 3px 3px 0 var(--ink); margin-bottom: 6px;
   }
-  h1 .sub { color: var(--dim); font-family: 'VT323', monospace; font-size: 17px; text-shadow: none; display: block; margin-top: 6px; }
+  h1 .sub { color: var(--dim); font-family: inherit; font-size: 14px; line-height: 1.4; text-shadow: none; display: block; margin-top: 6px; }
   .panel {
     background: var(--panel); border: 4px solid var(--border);
     box-shadow: 0 5px 0 var(--ink), inset 0 0 0 2px rgba(0,0,0,.25);
@@ -44,40 +44,49 @@
   }
   .ptitle { font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--accent); margin-bottom: 8px; }
 
-  .quest { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 3px solid var(--border); flex-wrap: wrap; }
+  .quest { display: block; padding: 12px 0; border-bottom: 3px solid var(--border); position: relative; }
   .quest:last-child { border-bottom: none; }
-  .quest .name { flex: 1 1 40%; font-size: 21px; }
-  .quest .xp { color: var(--accent2); font-size: 17px; white-space: nowrap; }
+  .quest .name { display: block; width: 100%; font-size: 17px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+  .quest .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+  .quest .xp { color: var(--accent2); font-size: 14px; white-space: nowrap; }
+  .quest .actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .quest .actions .grow { flex: 1; }
   .quest.done .name { color: var(--dim); text-decoration: line-through; }
-
+  .quest.hl { outline: 3px solid var(--accent2); outline-offset: 2px; background: rgba(247,201,72,.08); }
+  .badge.st-new { color: var(--dim); }
+  .badge.st-go { color: var(--ink); background: var(--accent2); border-color: var(--accent2); }
+  .menu { position: absolute; right: 0; bottom: 48px; background: var(--panel2); border: 3px solid var(--border); box-shadow: 0 3px 0 var(--ink); z-index: 5; }
+  .menu button { display: block; width: 100%; text-align: left; box-shadow: none; border: none; color: var(--danger); min-width: 140px; }
+  details.how summary { cursor: pointer; color: var(--accent); font-size: 14px; margin-top: 8px; }
+  details.how .muted { margin-top: 4px; }
   button {
     cursor: pointer; background: var(--panel2); color: var(--text);
     border: 3px solid var(--border); box-shadow: 0 3px 0 var(--ink);
-    font-family: 'VT323', monospace; font-size: 18px; padding: 7px 12px;
+    font-family: inherit; font-size: 15px; padding: 9px 14px;
   }
   button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
   button.done-btn {
     background: var(--accent); color: var(--ink); border-color: var(--ink);
     font-family: 'Press Start 2P', monospace; font-size: 9px; padding: 9px 10px 7px;
   }
-  button.small { padding: 5px 9px; font-size: 16px; }
+  button.small { padding: 8px 12px; font-size: 14px; min-height: 36px; }
   button.danger { color: var(--danger); }
 
   input {
     background: var(--ink); border: 3px solid var(--border); color: var(--text);
-    padding: 9px 10px; font-family: 'VT323', monospace; font-size: 19px; width: 100%;
+    padding: 10px 10px; font-family: inherit; font-size: 16px; width: 100%;
   }
   input:focus { outline: none; border-color: var(--accent); }
-  .addrow { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
-  .addrow input[type="text"], .addrow input:not([type]) { flex: 1; }
+  .addrow { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; align-items: stretch; }
+  .addrow input, .addrow button { width: 100%; }
 
-  .muted { color: var(--dim); font-size: 17px; margin-top: 6px; line-height: 1.4; }
+  .muted { color: var(--dim); font-size: 14px; margin-top: 6px; line-height: 1.45; }
 
   .badge {
-    font-size: 15px; padding: 3px 8px; border: 2px solid var(--border);
+    font-size: 13px; padding: 4px 8px; border: 2px solid var(--border);
     color: var(--dim); white-space: nowrap;
   }
-  button.badge { cursor: pointer; background: none; box-shadow: none; font-family: 'VT323', monospace; }
+  button.badge { cursor: pointer; background: none; box-shadow: none; font-family: inherit; font-size: 13px; padding: 4px 8px; }
   button.badge:active { transform: none; box-shadow: none; }
   .cathead {
     font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--accent2);
@@ -85,15 +94,15 @@
   }
   .cat-editor { display: flex; gap: 8px; align-items: center; padding: 6px 0 6px 12px; flex-wrap: wrap; }
   .cat-editor input { flex: 1; min-width: 120px; }
-  #newCat { max-width: 170px; }
+  #newCat { max-width: none; }
 
   .rollbox { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
-  .chip { cursor:pointer; user-select:none; padding:5px 10px; border:3px solid var(--border); background:var(--panel2); color:var(--dim); font-size:18px; }
-  button.chip { font-family: 'VT323', monospace; box-shadow:none; }
+  .chip { cursor:pointer; user-select:none; padding:5px 10px; border:3px solid var(--border); background:var(--panel2); color:var(--dim); font-size:15px; }
+  button.chip { font-family: inherit; box-shadow:none; }
   button.chip:active { transform:none; box-shadow:none; }
   .chip.on { background:var(--accent); color:var(--ink); border-color:var(--accent); }
-  #rollResult { margin-top:10px; padding:10px; border:3px dashed var(--accent2); display:none; font-size:22px; }
-  #rollResult .rcat { color:var(--dim); font-size:16px; display:block; }
+  #rollResult { margin-top:10px; padding:10px; border:3px dashed var(--accent2); display:none; font-size:17px; }
+  #rollResult .rcat { color:var(--dim); font-size:13px; display:block; }
   #rollResult .ractions { margin-top:8px; display:flex; gap:8px; }
   .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
   .tab {
@@ -109,7 +118,7 @@
   #loginPanel h1 { margin-bottom: 16px; }
   #loginPanel input { margin-bottom: 12px; }
   #loginPanel button { width: 100%; }
-  #error { color: var(--danger); font-size: 18px; margin-top: 8px; min-height: 20px; }
+  #error { color: var(--danger); font-size: 15px; margin-top: 8px; min-height: 20px; }
 
   /* celebrations */
   #celebrate { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.78); z-index: 60; text-align: center; padding-top: 30vh; }
@@ -152,11 +161,12 @@
       <input id="newTitle" type="text" placeholder="Add a side quest...">
       <input id="newCat" type="text" list="catList" placeholder="Category (optional)">
       <datalist id="catList"></datalist>
-      <button id="addBtn">Add</button>
+      <button id="addBtn">Add quest</button>
     </div>
-    <div class="muted">
-      Start a side quest before you head out, then tell Instinct in chat so your location can be checked. Location checks come from your phone's location history and can miss updates.
-    </div>
+    <details class="how">
+      <summary>How checking works</summary>
+      <div class="muted">Start a side quest before you head out, then tell Instinct in chat so your location can be checked. Location checks come from your phone's location history and can miss updates.</div>
+    </details>
   </div>
 
   <div class="panel">
@@ -263,35 +273,64 @@ function renderQuests() {
     g.items.forEach(q => {
       const row = document.createElement('div');
       row.className = 'quest';
-      const started = q.started_at ? ' <span class="badge">started ' + new Date(q.started_at).toLocaleDateString() + '</span>' : '';
-      row.innerHTML = '<span class="name"></span> <span class="xp">+' + q.xp + ' XP</span>' + started;
-      row.querySelector('.name').textContent = q.title;
+      row.dataset.id = q.id;
+      const nm = document.createElement('span');
+      nm.className = 'name';
+      nm.textContent = q.title;
+      row.appendChild(nm);
 
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const xp = document.createElement('span');
+      xp.className = 'xp'; xp.textContent = '+' + q.xp + ' XP';
+      meta.appendChild(xp);
       const catBtn = document.createElement('button');
       catBtn.className = 'badge';
       catBtn.title = 'Change category';
       catBtn.textContent = questCat(q) || '+ cat';
       catBtn.onclick = () => toggleCatEditor(row, q);
-      row.appendChild(catBtn);
+      meta.appendChild(catBtn);
+      const st = document.createElement('span');
+      st.className = 'badge ' + (q.started_at ? 'st-go' : 'st-new');
+      st.textContent = q.started_at ? 'In progress - since ' + new Date(q.started_at).toLocaleDateString() : 'Not started';
+      meta.appendChild(st);
+      row.appendChild(meta);
 
+      const act = document.createElement('div');
+      act.className = 'actions';
       if (!q.started_at) {
         const s = document.createElement('button');
         s.className = 'small'; s.textContent = 'Start';
         s.onclick = async () => { await sb.from('quests').update({ started_at: new Date().toISOString() }).eq('id', q.id); loadQuests(); };
-        row.appendChild(s);
+        act.appendChild(s);
       }
       const d = document.createElement('button');
       d.className = 'done-btn'; d.textContent = 'Done';
       d.onclick = () => completeQuest(q);
-      row.appendChild(d);
-      const del = document.createElement('button');
-      del.className = 'small danger'; del.textContent = 'x';
-      del.onclick = async () => { if (confirm('Delete "' + q.title + '"?')) { await sb.from('quests').delete().eq('id', q.id); loadQuests(); } };
-      row.appendChild(del);
+      act.appendChild(d);
+      const gr = document.createElement('span'); gr.className = 'grow'; act.appendChild(gr);
+      const more = document.createElement('button');
+      more.className = 'small'; more.textContent = '\u22EF'; more.title = 'More'; more.setAttribute('aria-label', 'More actions');
+      more.onclick = (ev) => {
+        ev.stopPropagation();
+        const ex = row.querySelector('.menu');
+        document.querySelectorAll('.menu').forEach(m => m.remove());
+        if (ex) return;
+        const m = document.createElement('div'); m.className = 'menu';
+        const del = document.createElement('button');
+        del.textContent = 'Delete quest';
+        del.onclick = async () => { m.remove(); if (confirm('Delete "' + q.title + '"? This cannot be undone.')) { await sb.from('quests').delete().eq('id', q.id); loadQuests(); } };
+        m.appendChild(del);
+        row.appendChild(m);
+      };
+      act.appendChild(more);
+      row.appendChild(act);
       el.appendChild(row);
     });
   });
 }
+
+document.addEventListener('click', () => document.querySelectorAll('.menu').forEach(m => m.remove()));
 
 function toggleCatEditor(row, q) {
   const next = row.nextSibling;
@@ -389,18 +428,17 @@ function doRoll() {
   if (pool.length > 1 && window.__lastRoll) { const p2 = pool.filter(q => q.id !== window.__lastRoll); if (p2.length) pool = p2; }
   const q = pool[Math.floor(Math.random() * pool.length)];
   window.__lastRoll = q.id;
-  r.innerHTML = '<span class="rcat"></span><span class="rt"></span><div class="ractions"></div>';
+  r.innerHTML = '<span class="rcat"></span><span class="rt"></span><div class="muted rnote"></div><div class="ractions"></div>';
   r.querySelector('.rcat').textContent = catLabel(q) + ' - +' + q.xp + ' XP';
   r.querySelector('.rt').textContent = q.title;
+  r.querySelector('.rnote').textContent = 'Highlighted in your list below.';
   const a = r.querySelector('.ractions');
-  if (!q.started_at) {
-    const s = document.createElement('button'); s.className = 'small'; s.textContent = 'Start';
-    s.onclick = async () => { await sb.from('quests').update({ started_at: new Date().toISOString() }).eq('id', q.id); await loadQuests(); r.style.display = 'none'; };
-    a.appendChild(s);
-  }
   const again = document.createElement('button'); again.className = 'small'; again.textContent = 'Reroll';
   again.onclick = doRoll;
   a.appendChild(again);
+  document.querySelectorAll('.quest.hl').forEach(x => x.classList.remove('hl'));
+  const card = document.querySelector('.quest[data-id="' + q.id + '"]');
+  if (card) { card.classList.add('hl'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 }
 $('rollBtn').onclick = doRoll;
 
@@ -409,3 +447,4 @@ init();
 </script>
 </body>
 </html>
+
